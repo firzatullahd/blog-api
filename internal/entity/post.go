@@ -8,13 +8,15 @@ type Post struct {
 	ID      uint64 `db:"id"`
 	Title   string `db:"title"`
 	Content string `db:"content"`
-	//Tags    []uint64 `db:"tags"`
-	Status string `db:"status"`
+	Status  string `db:"status"`
 
 	PublishDate *time.Time `db:"publish_date"`
 	CreatedAt   time.Time  `db:"created_at"`
 	UpdatedAt   time.Time  `db:"updated_at"`
 	DeletedAt   *time.Time `db:"deleted_at"`
+
+	Tags   []string
+	TagIDs []uint64
 }
 
 type PostStatus int

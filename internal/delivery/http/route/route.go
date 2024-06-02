@@ -12,40 +12,24 @@ import (
 
 func Serve(conf *config.Config, h *handler.Handler) {
 
-	//e := echo.New()
 	m := middleware.NewMiddleware(conf.JWTSecretKey)
-	//e.Pre(echoMiddleware.RemoveTrailingSlash())
-	//e.Use(echoMiddleware.Logger(), echoMiddleware.Recover())
-	//e.Use(m.LogContext())
-
 	mux := http.NewServeMux()
 
-	mux.Handle("/", m.LogContext(http.HandlerFunc(hello)))
-	mux.Handle("/v1/user/register", m.LogContext(http.HandlerFunc(h.Register)))
+	mux.Handle("GET /health", m.LogContext(http.HandlerFunc(Health)))
+	mux.Handle("POST /api/users/register", m.LogContext(http.HandlerFunc(h.Register)))
+	mux.Handle("POST /api/users/login", m.LogContext(http.HandlerFunc(h.Login)))
+	mux.Handle("POST /api/users/admin", m.LogContext(http.HandlerFunc(h.GrantAdmin)))
 
+	mux.Handle("POST /api/posts", m.LogContext(m.Auth(http.HandlerFunc(h.CreatePost))))
+	mux.Handle("PUT /api/posts/{id}", m.LogContext(m.Auth(http.HandlerFunc(h.UpdatePost))))
+	mux.Handle("DELETE /api/posts/{id}", m.LogContext(m.Auth(http.HandlerFunc(h.DeletePost))))
+	mux.Handle("GET /api/posts/{id}", m.LogContext(m.Auth(http.HandlerFunc(h.GetPost))))
+
+	log.Println("Running on port " + conf.Port)
 	log.Fatal(http.ListenAndServe(conf.Port, mux))
 
-	//userApi := e.Group("/v1/user")
-	//userApi.POST("/register", h.Register)
-	//userApi.POST("/login", h.Login)
-	//
-	//catApi := e.Group("/v1/cat", m.Auth())
-	//catApi.POST("/", h.CreateCat)
-	//catApi.GET("/", h.FindCat)
-	//catApi.PUT("/:id", h.UpdateCat)
-	//catApi.DELETE("/:id", h.DeleteCat)
-	//
-	//matchApi := e.Group("/v1/match", m.Auth())
-	//matchApi.POST("/", h.CreateMatch)
-	//matchApi.GET("/", h.FindMatch)
-	//matchApi.POST("/approve", h.ApproveMatch)
-	//matchApi.POST("/reject", h.RejectMatch)
-	//matchApi.DELETE("/:id", h.DeleteMatch)
-	//
-	//e.Logger.Fatal(e.Start(constant.AppPort))
 }
 
-func hello(w http.ResponseWriter, r *http.Request) {
+func Health(w http.ResponseWriter, r *http.Request) {
 	response.SetHTTPResponse(w, http.StatusOK, "success", nil)
-	return
 }

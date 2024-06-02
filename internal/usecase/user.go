@@ -5,14 +5,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/mail"
+	"time"
+
 	"github.com/firzatullahd/blog-api/internal/entity"
 	"github.com/firzatullahd/blog-api/internal/model"
 	customerror "github.com/firzatullahd/blog-api/internal/model/error"
 	"github.com/firzatullahd/blog-api/internal/utils/logger"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
-	"net/mail"
-	"time"
 )
 
 func (u *Usecase) Register(ctx context.Context, in *model.RegisterRequest) (*model.AuthResponse, error) {
@@ -53,6 +54,7 @@ func (u *Usecase) Register(ctx context.Context, in *model.RegisterRequest) (*mod
 		Email:    in.Email,
 		Password: string(password),
 		Name:     in.Name,
+		Role:     entity.RoleUser.String(),
 	}
 	res, err := u.repo.InsertUser(ctx, tx, &user)
 	if err != nil {
@@ -99,10 +101,11 @@ func (u *Usecase) Login(ctx context.Context, in *model.LoginRequest) (*model.Aut
 	})
 	if err != nil {
 		logger.Error(ctx, logCtx, err)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, customerror.ErrNotFound
-		}
 		return nil, err
+	}
+
+	if len(users) == 0 {
+		return nil, customerror.ErrNotFound
 	}
 	user := users[0]
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(in.Password))
@@ -133,7 +136,7 @@ func (u *Usecase) generateAccessToken(userId uint64, email, role string) (string
 			Role:  role,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 8)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
 		},
 	})
 
@@ -141,11 +144,11 @@ func (u *Usecase) generateAccessToken(userId uint64, email, role string) (string
 }
 
 func (u *Usecase) GrantAdmin(ctx context.Context, in *model.LoginRequest) (*model.AuthResponse, error) {
-	if in.SecretKey != u.conf.JWTSecretKey {
+	logCtx := fmt.Sprintf("%T.GrantAdmin", u)
+
+	if in.SecretKey != u.conf.AdminSecretKey {
 		return nil, customerror.ErrUnauthorized
 	}
-
-	logCtx := fmt.Sprintf("%T.GrantAdmin", u)
 	users, err := u.repo.FindUsers(ctx, &model.FilterFindUser{
 		Email: &in.Email,
 	})
@@ -156,6 +159,11 @@ func (u *Usecase) GrantAdmin(ctx context.Context, in *model.LoginRequest) (*mode
 		}
 		return nil, err
 	}
+
+	if len(users) == 0 {
+		return nil, customerror.ErrNotFound
+	}
+
 	user := users[0]
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(in.Password))
 	if err != nil {
@@ -165,11 +173,13 @@ func (u *Usecase) GrantAdmin(ctx context.Context, in *model.LoginRequest) (*mode
 
 	tx, err := u.repo.WithTransaction()
 	if err != nil {
+		logger.Error(ctx, logCtx, err)
 		return nil, err
 	}
 
 	defer func() {
 		if err != nil {
+			logger.Error(ctx, logCtx, err)
 			_ = tx.Rollback()
 		}
 	}()
@@ -179,10 +189,11 @@ func (u *Usecase) GrantAdmin(ctx context.Context, in *model.LoginRequest) (*mode
 		Email: in.Email,
 	})
 	if err != nil {
+		logger.Error(ctx, logCtx, err)
 		return nil, err
 	}
 
-	_ = tx.Commit()
+	tx.Commit()
 
 	accessToken, err := u.generateAccessToken(user.ID, user.Email, user.Role)
 	if err != nil {
@@ -194,7 +205,6 @@ func (u *Usecase) GrantAdmin(ctx context.Context, in *model.LoginRequest) (*mode
 		Name:        user.Name,
 		Email:       user.Email,
 		AccessToken: accessToken,
-		Role:        user.Role,
 	}, nil
 
 }

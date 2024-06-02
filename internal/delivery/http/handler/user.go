@@ -25,7 +25,6 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.SetHTTPResponse(w, http.StatusCreated, "User registered successfully", resp)
-	return
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +41,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.SetHTTPResponse(w, http.StatusOK, "User logged in successfully", resp)
-	return
 }
 
 func (h *Handler) GrantAdmin(w http.ResponseWriter, r *http.Request) {
@@ -60,5 +58,4 @@ func (h *Handler) GrantAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.SetHTTPResponse(w, http.StatusOK, "successfully granted admin role", resp)
-	return
 }
