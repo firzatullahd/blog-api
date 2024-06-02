@@ -1,0 +1,7 @@
+sudo ss -lptn 'sport = :5432'
+
+psql -h localhost -U postgres -d postgres -W -c "create database example;"
+pass: 12345
+
+migrate -database postgres://postgres:12345@localhost:5432/postgres?sslmode=disable -path db/migrations up
+

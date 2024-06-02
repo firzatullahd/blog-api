@@ -1,0 +1,1 @@
+drop table if exists r_post_tag;
