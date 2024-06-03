@@ -3,13 +3,15 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+
 	"github.com/firzatullahd/blog-api/internal/delivery/http/middleware"
 	"github.com/firzatullahd/blog-api/internal/model"
 	customerror "github.com/firzatullahd/blog-api/internal/model/error"
 	"github.com/firzatullahd/blog-api/internal/model/response"
 	"github.com/firzatullahd/blog-api/internal/utils/logger"
-	"net/http"
-	"strconv"
 )
 
 func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
@@ -97,15 +99,20 @@ func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 	response.SetHTTPResponse(w, http.StatusOK, "record found", post)
 }
 
-// todo
 func (h *Handler) SearchPost(w http.ResponseWriter, r *http.Request) {
 	logCtx := fmt.Sprintf("%T.SearchPost", h)
 	ctx := r.Context()
 
-	id := r.PathValue("id")
-	postId, err := strconv.ParseUint(id, 10, 64)
+	tag := r.URL.Query().Get("tag")
+	limit := r.URL.Query().Get("limit")
+	page := r.URL.Query().Get("page")
 
-	post, err := h.Usecase.GetPost(ctx, postId)
+	var payload model.FilterSearchPost
+	payload.Limit, _ = strconv.Atoi(limit)
+	payload.Page, _ = strconv.Atoi(page)
+	payload.TagLabel = strings.Split(tag, ",")
+
+	post, err := h.Usecase.SearchPost(ctx, payload)
 	if err != nil {
 		code, errMsg := customerror.ParseError(err)
 		logger.Error(ctx, logCtx, err)

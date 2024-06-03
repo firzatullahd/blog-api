@@ -15,3 +15,15 @@ func EntityPostToResponse(in *entity.Post) model.PostResult {
 		Tags:        in.Tags,
 	}
 }
+
+func SearchPostResponse(posts []entity.Post, count int, page int) model.SearchResult {
+	var data []model.PostResult
+	for _, v := range posts {
+		data = append(data, EntityPostToResponse(&v))
+	}
+	return model.SearchResult{
+		Data:  data,
+		Count: count,
+		Page:  page,
+	}
+}

@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/firzatullahd/blog-api/internal/model/converter"
 	customerror "github.com/firzatullahd/blog-api/internal/model/error"
-	"time"
 
 	"github.com/firzatullahd/blog-api/internal/entity"
 	"github.com/firzatullahd/blog-api/internal/model"
@@ -43,14 +44,11 @@ func (u *Usecase) CreatePost(ctx context.Context, in *model.Post) (*model.PostRe
 
 	defer func() {
 		if err != nil {
-			_ = tx.Rollback()
+			tx.Rollback()
 		}
 	}()
 
-	// if all tags exists, continue
-	// if any tag not exists, insert missing tag
 	if len(missingTags) > 0 {
-		// insert tags
 		for _, v := range missingTags {
 			tagId, err := u.repo.InsertTag(ctx, tx, &entity.Tag{
 				Label: v,
@@ -81,16 +79,15 @@ func (u *Usecase) CreatePost(ctx context.Context, in *model.Post) (*model.PostRe
 		}
 	}
 
-	_ = tx.Commit()
-
 	post.Tags = in.Tags
 	resp := converter.EntityPostToResponse(post)
-	return &resp, nil
+	return &resp, tx.Commit()
 }
 
 func (u *Usecase) UpdatePost(ctx context.Context, in *model.Post, id uint64, email string) error {
 	logCtx := fmt.Sprintf("%T.UpdatePost", u)
 
+	// if publish post, check user's role
 	if len(in.Status) > 0 {
 		users, err := u.repo.FindUsers(ctx, &model.FilterFindUser{
 			Email: &email,
@@ -108,32 +105,6 @@ func (u *Usecase) UpdatePost(ctx context.Context, in *model.Post, id uint64, ema
 			return customerror.ErrForbidden
 		}
 	}
-
-	//rposts, err := u.repo.FindRPostTag(ctx, model.FilterFindRPost{PostID: []uint64{id}})
-	//if err != nil {
-	//	logger.Error(ctx, logCtx, err)
-	//	return err
-	//}
-
-	tags, err := u.repo.FindTag(ctx, model.FilterFindTag{
-		Label: in.Tags,
-	})
-	if err != nil {
-		logger.Error(ctx, logCtx, err)
-		return err
-	}
-
-	originalTags := make([]string, len(tags))
-	mapTags := make(map[string]uint64)
-	for _, v := range tags {
-		originalTags = append(originalTags, v.Label)
-		mapTags[v.Label] = v.ID
-	}
-
-	fmt.Printf("MAPTAG %v\n", mapTags)
-
-	missingTags := utils.FindMissing(originalTags, in.Tags)
-	unusedTags := utils.FindMissing(in.Tags, originalTags)
 
 	tx, err := u.repo.WithTransaction()
 	if err != nil {
@@ -168,9 +139,39 @@ func (u *Usecase) UpdatePost(ctx context.Context, in *model.Post, id uint64, ema
 		return err
 	}
 
+	rposts, err := u.repo.FindRPostTag(ctx, model.FilterFindRPost{PostID: id})
+	if err != nil {
+		logger.Error(ctx, logCtx, err)
+		return err
+	}
+
+	var existingTagIDs []uint64
+	for _, v := range rposts {
+		existingTagIDs = append(existingTagIDs, v.TagID)
+	}
+
+	tags, err := u.repo.FindTag(ctx, model.FilterFindTag{
+		ID: existingTagIDs,
+	})
+	if err != nil {
+		logger.Error(ctx, logCtx, err)
+		return err
+	}
+
+	existingTags := make([]string, len(tags))
+	mapTagsID := make(map[string]uint64)
+	for _, v := range tags {
+		existingTags = append(existingTags, v.Label)
+		mapTagsID[v.Label] = v.ID
+	}
+
+	fmt.Printf("MAPTAG %v\n", mapTagsID)
+
+	missingTags := utils.FindMissing(existingTags, in.Tags)
+	unusedTags := utils.FindMissing(in.Tags, existingTags)
+
 	missingTagIDs := make([]uint64, 0)
 	if len(missingTags) > 0 {
-		// insert tags
 		for _, v := range missingTags {
 			tagId, err := u.repo.InsertTag(ctx, tx, &entity.Tag{
 				Label: v,
@@ -194,12 +195,15 @@ func (u *Usecase) UpdatePost(ctx context.Context, in *model.Post, id uint64, ema
 
 	if len(unusedTags) > 0 {
 		for _, v := range unusedTags {
-			tagId, _ := mapTags[v]
-			err = u.repo.DeleteRPostTag(ctx, tx, id, tagId)
-			if err != nil {
-				logger.Error(ctx, logCtx, err)
-				return err
+			tagId, ok := mapTagsID[v]
+			if ok {
+				err = u.repo.DeleteRPostTag(ctx, tx, id, tagId)
+				if err != nil {
+					logger.Error(ctx, logCtx, err)
+					return err
+				}
 			}
+
 		}
 	}
 
@@ -227,8 +231,9 @@ func (u *Usecase) DeletePost(ctx context.Context, id uint64) error {
 
 func (u *Usecase) GetPost(ctx context.Context, id uint64) (*model.PostResult, error) {
 	logCtx := fmt.Sprintf("%T.GetPost", u)
-	post, err := u.repo.FindPost(ctx, model.FilterFindPost{
-		ID: id,
+
+	posts, err := u.repo.FindPosts(ctx, model.FilterFindPost{
+		IDs: []uint64{id},
 	})
 	if err != nil {
 		logger.Error(ctx, logCtx, err)
@@ -237,6 +242,11 @@ func (u *Usecase) GetPost(ctx context.Context, id uint64) (*model.PostResult, er
 		}
 		return nil, err
 	}
+
+	if len(posts) == 0 {
+		return nil, customerror.ErrNotFound
+	}
+	post := posts[0]
 
 	rposts, err := u.repo.FindRPostTag(ctx, model.FilterFindRPost{PostID: id})
 	if err != nil {
@@ -259,57 +269,59 @@ func (u *Usecase) GetPost(ctx context.Context, id uint64) (*model.PostResult, er
 		post.Tags = append(post.Tags, tag.Label)
 	}
 	post.TagIDs = tagIDs
-	resp := converter.EntityPostToResponse(post)
+	resp := converter.EntityPostToResponse(&post)
 	return &resp, nil
 }
 
-func (u *Usecase) SearchPost(ctx context.Context, tagLabels []string) ([]model.PostResult, error) {
+func (u *Usecase) SearchPost(ctx context.Context, in model.FilterSearchPost) (*model.SearchResult, error) {
 	logCtx := fmt.Sprintf("%T.SearchPost", u)
 
-	tags, err := u.repo.FindTag(ctx, model.FilterFindTag{
-		Label: tagLabels,
-	})
+	tags, err := u.repo.FindTag(ctx, model.FilterFindTag{Label: in.TagLabel})
+	if err != nil {
+		logger.Error(ctx, logCtx, err)
+		return nil, err
+	}
 
+	mapTags := make(map[uint64]string)
 	var tagIDs []uint64
 	for _, v := range tags {
 		tagIDs = append(tagIDs, v.ID)
+		mapTags[v.ID] = v.Label
 	}
 
-	// find rposts
-	// find post
+	rposts, err := u.repo.FindRPostTag(ctx, model.FilterFindRPost{TagIDs: tagIDs})
+	if err != nil {
+		logger.Error(ctx, logCtx, err)
+		return nil, err
+	}
 
-	post, err := u.repo.FindPost(ctx, model.FilterFindPost{
-		ID: id,
+	mapPosts := make(map[uint64][]string)
+	var postIDs []uint64
+	for _, v := range rposts {
+		postIDs = append(postIDs, v.PostID)
+		mapPosts[v.PostID] = append(mapPosts[v.PostID], mapTags[v.TagID])
+	}
+
+	posts, err := u.repo.FindPosts(ctx, model.FilterFindPost{
+		IDs:   postIDs,
+		Page:  in.Page,
+		Limit: in.Limit,
 	})
 	if err != nil {
 		logger.Error(ctx, logCtx, err)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, customerror.ErrNotFound
-		}
 		return nil, err
 	}
 
-	rposts, err := u.repo.FindRPostTag(ctx, model.FilterFindRPost{PostID: id})
+	countPosts, err := u.repo.CountPost(ctx)
 	if err != nil {
 		logger.Error(ctx, logCtx, err)
 		return nil, err
 	}
 
-	var tagIDs []uint64
-	for _, v := range rposts {
-		tagIDs = append(tagIDs, v.TagID)
+	for i := range posts {
+		posts[i].Tags = mapPosts[posts[i].ID]
 	}
 
-	tags, err := u.repo.FindTag(ctx, model.FilterFindTag{ID: tagIDs})
-	if err != nil {
-		logger.Error(ctx, logCtx, err)
-		return nil, err
-	}
-
-	for _, tag := range tags {
-		post.Tags = append(post.Tags, tag.Label)
-	}
-	post.TagIDs = tagIDs
-	resp := converter.EntityPostToResponse(post)
+	resp := converter.SearchPostResponse(posts, countPosts, in.Page)
 	return &resp, nil
 }

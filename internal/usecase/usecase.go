@@ -22,7 +22,8 @@ type Irepository interface {
 	InsertPost(ctx context.Context, tx *sql.Tx, in *entity.Post) (*entity.Post, error)
 	UpdatePost(ctx context.Context, tx *sql.Tx, in *entity.Post) error
 	DeletePost(ctx context.Context, tx *sql.Tx, id uint64) error
-	FindPost(ctx context.Context, in model.FilterFindPost) (*entity.Post, error)
+	FindPosts(ctx context.Context, in model.FilterFindPost) ([]entity.Post, error)
+	CountPost(ctx context.Context) (int, error)
 
 	InsertRPostTag(ctx context.Context, tx *sql.Tx, postID, tagID uint64) error
 	DeleteRPostTag(ctx context.Context, tx *sql.Tx, postID, tagID uint64) error
