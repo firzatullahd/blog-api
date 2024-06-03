@@ -4,16 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/firzatullahd/blog-api/internal/entity"
 	"github.com/firzatullahd/blog-api/internal/model"
 	"github.com/firzatullahd/blog-api/internal/utils/logger"
+	"github.com/lib/pq"
 )
 
 func (r *Repo) FindRPostTag(ctx context.Context, in model.FilterFindRPost) ([]entity.RPost, error) {
 	logCtx := fmt.Sprintf("%T.FindRPostTag", r)
 
+	query, args := buildQueryFindRPostTag(in)
+
 	var rposts []entity.RPost
-	rows, err := r.dbRead.QueryContext(ctx, `select id, post_id, tag_id, created_at, deleted_at from r_post_tag where post_id = $1 and deleted_at isnull`, in.PostID)
+	rows, err := r.dbRead.QueryContext(ctx, query, args...)
 	if err != nil {
 		logger.Error(ctx, logCtx, err)
 		return nil, err
@@ -32,6 +36,21 @@ func (r *Repo) FindRPostTag(ctx context.Context, in model.FilterFindRPost) ([]en
 	}
 
 	return rposts, nil
+}
+
+func buildQueryFindRPostTag(in model.FilterFindRPost) (string, []any) {
+	query := `select id, post_id, tag_id, created_at, deleted_at from r_post_tag where deleted_at isnull`
+	var args []any
+
+	if in.PostID > 0 {
+		query += " and post_id = $1"
+		args = append(args, pq.Array(in.PostID))
+	} else if len(in.TagIDs) > 0 {
+		query += " and tag_id = any($1)"
+		args = append(args, pq.Array(in.TagIDs))
+	}
+
+	return query, args
 }
 
 func (r *Repo) InsertRPostTag(ctx context.Context, tx *sql.Tx, postID, tagID uint64) error {

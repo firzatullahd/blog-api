@@ -19,10 +19,11 @@ type Irepository interface {
 	InsertTag(ctx context.Context, tx *sql.Tx, in *entity.Tag) (uint64, error)
 	FindTag(ctx context.Context, in model.FilterFindTag) ([]entity.Tag, error)
 
-	InsertPost(ctx context.Context, tx *sql.Tx, in *entity.Post) (uint64, error)
+	InsertPost(ctx context.Context, tx *sql.Tx, in *entity.Post) (*entity.Post, error)
 	UpdatePost(ctx context.Context, tx *sql.Tx, in *entity.Post) error
 	DeletePost(ctx context.Context, tx *sql.Tx, id uint64) error
-	FindPost(ctx context.Context, in model.FilterFindPost) (*entity.Post, error)
+	FindPosts(ctx context.Context, in model.FilterFindPost) ([]entity.Post, error)
+	CountPost(ctx context.Context) (int, error)
 
 	InsertRPostTag(ctx context.Context, tx *sql.Tx, postID, tagID uint64) error
 	DeleteRPostTag(ctx context.Context, tx *sql.Tx, postID, tagID uint64) error

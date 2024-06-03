@@ -15,8 +15,7 @@ type Post struct {
 	UpdatedAt   time.Time  `db:"updated_at"`
 	DeletedAt   *time.Time `db:"deleted_at"`
 
-	Tags   []string
-	TagIDs []uint64
+	Tags []string
 }
 
 type PostStatus int
