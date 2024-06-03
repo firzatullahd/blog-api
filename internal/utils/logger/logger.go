@@ -7,6 +7,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	CorrelationIDKey string = "Correlation-ID"
+)
+
 func Init() {
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
@@ -17,7 +21,7 @@ func Init() {
 
 func Info(ctx context.Context, format string, values ...interface{}) {
 	var id string
-	val := ctx.Value("X-Correlation-ID")
+	val := ctx.Value(CorrelationIDKey)
 	if val != nil {
 		id = val.(string)
 	}
@@ -28,7 +32,7 @@ func Info(ctx context.Context, format string, values ...interface{}) {
 
 func Warn(ctx context.Context, format string, values ...interface{}) {
 	var id string
-	val := ctx.Value("X-Correlation-ID")
+	val := ctx.Value(CorrelationIDKey)
 	if val != nil {
 		id = val.(string)
 	}
@@ -39,7 +43,7 @@ func Warn(ctx context.Context, format string, values ...interface{}) {
 
 func Error(ctx context.Context, format string, values ...interface{}) {
 	var id string
-	val := ctx.Value("X-Correlation-ID")
+	val := ctx.Value(CorrelationIDKey)
 	if val != nil {
 		id = val.(string)
 	}
@@ -50,7 +54,7 @@ func Error(ctx context.Context, format string, values ...interface{}) {
 
 func Debug(ctx context.Context, format string, values ...interface{}) {
 	var id string
-	val := ctx.Value("X-Correlation-ID")
+	val := ctx.Value(CorrelationIDKey)
 	if val != nil {
 		id = val.(string)
 	}
@@ -61,7 +65,7 @@ func Debug(ctx context.Context, format string, values ...interface{}) {
 
 func Fatal(ctx context.Context, format string, values ...interface{}) {
 	var id string
-	val := ctx.Value("X-Correlation-ID")
+	val := ctx.Value(CorrelationIDKey)
 	if val != nil {
 		id = val.(string)
 	}

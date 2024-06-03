@@ -23,7 +23,8 @@ func Serve(conf *config.Config, h *handler.Handler) {
 	mux.Handle("POST /api/posts", m.LogContext(m.Auth(http.HandlerFunc(h.CreatePost))))
 	mux.Handle("PUT /api/posts/{id}", m.LogContext(m.Auth(http.HandlerFunc(h.UpdatePost))))
 	mux.Handle("DELETE /api/posts/{id}", m.LogContext(m.Auth(http.HandlerFunc(h.DeletePost))))
-	mux.Handle("GET /api/posts/{id}", m.LogContext(m.Auth(http.HandlerFunc(h.GetPost))))
+	mux.Handle("GET /api/posts/{id}", m.LogContext(http.HandlerFunc(h.GetPost)))
+	mux.Handle("GET /api/posts/", m.LogContext(http.HandlerFunc(h.SearchPost)))
 
 	log.Println("Running on port " + conf.Port)
 	log.Fatal(http.ListenAndServe(conf.Port, mux))

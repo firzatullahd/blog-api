@@ -10,17 +10,17 @@ import (
 	"github.com/firzatullahd/blog-api/internal/utils/logger"
 )
 
-func (r *Repo) InsertPost(ctx context.Context, tx *sql.Tx, in *entity.Post) (uint64, error) {
+func (r *Repo) InsertPost(ctx context.Context, tx *sql.Tx, in *entity.Post) (*entity.Post, error) {
 	logCtx := fmt.Sprintf("%T.InsertPost", r)
 	logger.Info(ctx, "invoked InsertPost")
-	var id uint64
-	err := tx.QueryRowContext(ctx, `insert into posts(title, content) values ($1, $2) returning id`, in.Title, in.Content).Scan(&id)
+	var post entity.Post
+	err := tx.QueryRowContext(ctx, `insert into posts(title, content) values ($1, $2) returning id, title, content, status, publish_date, created_at, updated_at, deleted_at`, in.Title, in.Content).Scan(&post.ID, &post.Title, &post.Content, &post.Status, &post.PublishDate, &post.CreatedAt, &post.UpdatedAt, &post.DeletedAt)
 	if err != nil {
 		logger.Error(ctx, logCtx, err)
-		return 0, err
+		return nil, err
 	}
 
-	return id, nil
+	return &post, nil
 }
 
 func (r *Repo) UpdatePost(ctx context.Context, tx *sql.Tx, in *entity.Post) error {

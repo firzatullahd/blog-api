@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/firzatullahd/blog-api/internal/model/converter"
 	customerror "github.com/firzatullahd/blog-api/internal/model/error"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/firzatullahd/blog-api/internal/utils/logger"
 )
 
-func (u *Usecase) CreatePost(ctx context.Context, in *model.Post) (*entity.Post, error) {
+func (u *Usecase) CreatePost(ctx context.Context, in *model.Post) (*model.PostResult, error) {
 	logCtx := fmt.Sprintf("%T.CreatePost", u)
 
 	tags, err := u.repo.FindTag(ctx, model.FilterFindTag{
@@ -63,7 +64,7 @@ func (u *Usecase) CreatePost(ctx context.Context, in *model.Post) (*entity.Post,
 		}
 	}
 
-	postId, err := u.repo.InsertPost(ctx, tx, &entity.Post{
+	post, err := u.repo.InsertPost(ctx, tx, &entity.Post{
 		Title:   in.Title,
 		Content: in.Content,
 	})
@@ -73,16 +74,18 @@ func (u *Usecase) CreatePost(ctx context.Context, in *model.Post) (*entity.Post,
 	}
 
 	for _, v := range tagIDs {
-		err := u.repo.InsertRPostTag(ctx, tx, postId, v)
+		err := u.repo.InsertRPostTag(ctx, tx, post.ID, v)
 		if err != nil {
 			logger.Error(ctx, logCtx, err)
 			return nil, err
 		}
 	}
 
-	tx.Commit()
+	_ = tx.Commit()
 
-	return u.GetPost(ctx, postId)
+	post.Tags = in.Tags
+	resp := converter.EntityPostToResponse(post)
+	return &resp, nil
 }
 
 func (u *Usecase) UpdatePost(ctx context.Context, in *model.Post, id uint64, email string) error {
@@ -222,7 +225,7 @@ func (u *Usecase) DeletePost(ctx context.Context, id uint64) error {
 	return tx.Commit()
 }
 
-func (u *Usecase) GetPost(ctx context.Context, id uint64) (*entity.Post, error) {
+func (u *Usecase) GetPost(ctx context.Context, id uint64) (*model.PostResult, error) {
 	logCtx := fmt.Sprintf("%T.GetPost", u)
 	post, err := u.repo.FindPost(ctx, model.FilterFindPost{
 		ID: id,
@@ -256,6 +259,57 @@ func (u *Usecase) GetPost(ctx context.Context, id uint64) (*entity.Post, error) 
 		post.Tags = append(post.Tags, tag.Label)
 	}
 	post.TagIDs = tagIDs
+	resp := converter.EntityPostToResponse(post)
+	return &resp, nil
+}
 
-	return post, nil
+func (u *Usecase) SearchPost(ctx context.Context, tagLabels []string) ([]model.PostResult, error) {
+	logCtx := fmt.Sprintf("%T.SearchPost", u)
+
+	tags, err := u.repo.FindTag(ctx, model.FilterFindTag{
+		Label: tagLabels,
+	})
+
+	var tagIDs []uint64
+	for _, v := range tags {
+		tagIDs = append(tagIDs, v.ID)
+	}
+
+	// find rposts
+	// find post
+
+	post, err := u.repo.FindPost(ctx, model.FilterFindPost{
+		ID: id,
+	})
+	if err != nil {
+		logger.Error(ctx, logCtx, err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, customerror.ErrNotFound
+		}
+		return nil, err
+	}
+
+	rposts, err := u.repo.FindRPostTag(ctx, model.FilterFindRPost{PostID: id})
+	if err != nil {
+		logger.Error(ctx, logCtx, err)
+		return nil, err
+	}
+
+	var tagIDs []uint64
+	for _, v := range rposts {
+		tagIDs = append(tagIDs, v.TagID)
+	}
+
+	tags, err := u.repo.FindTag(ctx, model.FilterFindTag{ID: tagIDs})
+	if err != nil {
+		logger.Error(ctx, logCtx, err)
+		return nil, err
+	}
+
+	for _, tag := range tags {
+		post.Tags = append(post.Tags, tag.Label)
+	}
+	post.TagIDs = tagIDs
+	resp := converter.EntityPostToResponse(post)
+	return &resp, nil
 }

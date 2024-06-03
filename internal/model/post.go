@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type Post struct {
 	Title   string   `json:"title"`
 	Content string   `json:"content"`
@@ -13,4 +15,13 @@ type FilterFindPost struct {
 
 type FilterFindRPost struct {
 	PostID uint64 `db:"post_id"`
+}
+
+type PostResult struct {
+	ID          uint64     `json:"ID"`
+	Title       string     `json:"title"`
+	Content     string     `json:"content"`
+	Status      string     `json:"status"`
+	PublishDate *time.Time `json:"publishDate"`
+	Tags        []string   `json:"tags"`
 }

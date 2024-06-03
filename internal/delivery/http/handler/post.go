@@ -96,3 +96,22 @@ func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 
 	response.SetHTTPResponse(w, http.StatusOK, "record found", post)
 }
+
+// todo
+func (h *Handler) SearchPost(w http.ResponseWriter, r *http.Request) {
+	logCtx := fmt.Sprintf("%T.SearchPost", h)
+	ctx := r.Context()
+
+	id := r.PathValue("id")
+	postId, err := strconv.ParseUint(id, 10, 64)
+
+	post, err := h.Usecase.GetPost(ctx, postId)
+	if err != nil {
+		code, errMsg := customerror.ParseError(err)
+		logger.Error(ctx, logCtx, err)
+		response.SetHTTPResponse(w, code, errMsg, nil)
+		return
+	}
+
+	response.SetHTTPResponse(w, http.StatusOK, "record found", post)
+}
