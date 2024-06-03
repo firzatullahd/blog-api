@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 
 	"github.com/firzatullahd/blog-api/internal/entity"
 	"github.com/firzatullahd/blog-api/internal/model"
@@ -59,7 +60,7 @@ func (r *Repo) FindPosts(ctx context.Context, in model.FilterFindPost) ([]entity
 	offset := in.Limit * (in.Page - 1)
 
 	var posts []entity.Post
-	rows, err := r.dbRead.QueryContext(ctx, `select id, title, content, status, publish_date, created_at, updated_at, deleted_at from posts where deleted_at isnull and id = any($1) order by id asc limit $2 offset $3`, in.IDs, in.Limit, offset)
+	rows, err := r.dbRead.QueryContext(ctx, `select id, title, content, status, publish_date, created_at, updated_at, deleted_at from posts where deleted_at isnull and id = any($1) order by id asc limit $2 offset $3`, pq.Array(in.IDs), in.Limit, offset)
 	if err != nil {
 		logger.Error(ctx, logCtx, err)
 		return nil, err

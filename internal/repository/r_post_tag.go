@@ -42,9 +42,9 @@ func buildQueryFindRPostTag(in model.FilterFindRPost) (string, []any) {
 	query := `select id, post_id, tag_id, created_at, deleted_at from r_post_tag where deleted_at isnull`
 	var args []any
 
-	if in.PostID > 0 {
-		query += " and post_id = $1"
-		args = append(args, pq.Array(in.PostID))
+	if len(in.PostIDs) > 0 {
+		query += " and post_id = any($1)"
+		args = append(args, pq.Array(in.PostIDs))
 	} else if len(in.TagIDs) > 0 {
 		query += " and tag_id = any($1)"
 		args = append(args, pq.Array(in.TagIDs))

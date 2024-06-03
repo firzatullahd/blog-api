@@ -3,15 +3,14 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"strconv"
-	"strings"
-
 	"github.com/firzatullahd/blog-api/internal/delivery/http/middleware"
 	"github.com/firzatullahd/blog-api/internal/model"
 	customerror "github.com/firzatullahd/blog-api/internal/model/error"
 	"github.com/firzatullahd/blog-api/internal/model/response"
 	"github.com/firzatullahd/blog-api/internal/utils/logger"
+	"net/http"
+	"strconv"
+	"strings"
 )
 
 func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +109,13 @@ func (h *Handler) SearchPost(w http.ResponseWriter, r *http.Request) {
 	var payload model.FilterSearchPost
 	payload.Limit, _ = strconv.Atoi(limit)
 	payload.Page, _ = strconv.Atoi(page)
-	payload.TagLabel = strings.Split(tag, ",")
+	if len(tag) > 0 {
+		payload.TagLabel = strings.Split(tag, ",")
+	}
+
+	if payload.Page == 0 {
+		payload.Page = 1
+	}
 
 	post, err := h.Usecase.SearchPost(ctx, payload)
 	if err != nil {

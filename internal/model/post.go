@@ -16,8 +16,8 @@ type FilterFindPost struct {
 }
 
 type FilterFindRPost struct {
-	PostID uint64   `db:"post_id"`
-	TagIDs []uint64 `db:"tag_id"`
+	PostIDs []uint64 `db:"post_id"`
+	TagIDs  []uint64 `db:"tag_id"`
 }
 
 type FilterSearchPost struct {
